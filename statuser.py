@@ -1,11 +1,36 @@
-### Status Moving Text Self-b0t 
+### Status Moving Text Self-b0t with Health Check Server
 import os
 import time
 import requests
 import urllib3
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Disable SSL warnings for cleaner output
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Health Check Server Class
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health' or self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Discord Status Bot is running!')
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        # Disable default logging to keep logs clean
+        pass
+
+def start_health_server():
+    """Start a simple HTTP server for health checks"""
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    print(f"🩺 Health check server running on port {port}")
+    server.serve_forever()
 
 # Get token from environment variable
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -74,7 +99,8 @@ def generate_moving_text(base_text, length=20):
         moving_texts.extend([full_text[i:i+length] for i in range(len(full_text) - length + 1)])
     return moving_texts
 
-def main():
+def discord_bot():
+    """Main bot function that runs in a loop"""
     base_text = ["𝘿-𝙀-𝙁-𝙄-𝙉-𝙄-𝙓"]  # Your text here
     status_length = 13
     moving_texts = generate_moving_text(base_text, status_length)
@@ -94,6 +120,19 @@ def main():
                 change_user_bio(bio_texts[bio_index])
             
             time.sleep(1.3)
+
+def main():
+    """Start both the health server and discord bot"""
+    print("=" * 50)
+    print("Starting Discord Status Bot with Health Check Server")
+    print("=" * 50)
+    
+    # Start health check server in a separate thread
+    health_thread = threading.Thread(target=start_health_server, daemon=True)
+    health_thread.start()
+    
+    # Start the discord bot (this will run in the main thread)
+    discord_bot()
 
 if __name__ == "__main__":
     main()
